@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+
+# CodeSage output artifacts
+codesage-report*/
+.codesage-workspaces/
+
+# Example fixture build/test artifacts
+examples/**/node_modules/
+examples/**/coverage/
+server/.data/

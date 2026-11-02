@@ -1,0 +1,181 @@
+/*
+ * CodeSage theme tokens.
+ *
+ * Structurally ported from OpenBot's design system (app/src/theme.css, MIT-licensed): same
+ * shadcn-style OKLCH token names, same `.dark` class + `@custom-variant dark` mechanism, same
+ * `@theme inline` bridge into Tailwind v4, same radius scale and 15px type scale. The neutral
+ * (grayscale) palette is kept as-is so surfaces/borders/radii/typography read identically; two
+ * tokens are CodeSage's own addition, not ported: `--brand`/`--brand-foreground`, a single indigo
+ * accent used sparingly for CodeSage's primary call-to-action and the live stage indicator, so the
+ * tool has its own identity without departing from the host system's restrained, mostly-monochrome
+ * look. No OpenBot copy, branding, or business logic is included here — tokens only.
+ */
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  color-scheme: light;
+  --background: oklch(0.985 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.96 0 0);
+  --muted-foreground: oklch(0.5 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --success: oklch(0.6 0.118 184.704);
+  --warning: oklch(0.55 0.15 70);
+  --warning-foreground: oklch(0.145 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --radius: 0.5rem;
+  --sidebar: oklch(0.97 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+
+  /* CodeSage's own accent (not from OpenBot) — a single indigo used for the primary CTA and the
+     active pipeline stage. Darkened from an earlier, lighter indigo after `impeccable detect`
+     (a real WCAG contrast checker, see docs/ARCHITECTURE.md) measured white-on-brand text at
+     3.4:1 against the 4.5:1 AA floor; #4338ca (Tailwind's indigo-700) keeps the same hue while
+     passing. Used flat across both themes so the one brand accent reads consistently. */
+  --brand: #4338ca;
+  --brand-foreground: #ffffff;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --success: oklch(0.704 0.14 182.503);
+  --warning: oklch(0.75 0.15 70);
+  --warning-foreground: oklch(0.145 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+
+  --brand: #4338ca;
+  --brand-foreground: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  position: relative;
+  min-width: 20rem;
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
+ * Type sits on a 15px base while spacing/radii stay on Tailwind's 16px rem grid (p-4 = 16px,
+ * h-8 = 32px): each size below is Tailwind's default scaled by 15/16.
+ */
+@theme inline {
+  --text-xs: 0.703125rem;
+  --text-sm: 0.8203125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.0546875rem;
+  --text-xl: 1.171875rem;
+  --text-2xl: 1.40625rem;
+  --text-3xl: 1.7578125rem;
+  --text-4xl: 2.109375rem;
+  --font-heading: var(--font-sans);
+  --font-sans: "Inter Variable", sans-serif;
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground text-base;
+  }
+  html {
+    @apply font-sans;
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 5px;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+}
+
+/* The one authored motion moment in this app: a toast arriving (see components/ui/toast.tsx).
+   Everything else that moves (hover, focus, the active pipeline-stage pulse) is a state change,
+   not an entrance, so it stays on plain Tailwind transitions instead of a second keyframe. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
