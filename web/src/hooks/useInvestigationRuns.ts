@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { apiUrl } from "../lib/apiBase";
 import type { JobState } from "../types";
 
 export interface RunMeta {
@@ -82,7 +83,7 @@ function saveMetas(metas: RunMeta[]) {
 
 async function fetchJob(id: string): Promise<JobState | null> {
   try {
-    const res = await fetch(`/api/jobs/${id}`);
+    const res = await fetch(apiUrl(`/api/jobs/${id}`));
     if (!res.ok) return null;
     return (await res.json()) as JobState;
   } catch {

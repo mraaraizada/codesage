@@ -8,6 +8,7 @@ import { StatusBar } from "./components/console/StatusBar";
 import { Toaster, useToasts } from "./components/ui/toast";
 import { CodeViewer } from "./components/codeviewer/CodeViewer";
 import { basenameOfPath } from "./lib/format";
+import { apiUrl } from "./lib/apiBase";
 import type { UploadResult } from "./lib/folderUpload";
 import type { CodeSageReport, JobState, MultiBugReport, VerificationStatus } from "./types";
 
@@ -90,14 +91,14 @@ export default function App() {
   const [viewingCodeJobId, setViewingCodeJobId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/health")
+    fetch(apiUrl("/api/health"))
       .then((r) => r.json())
       .then((d) => setLlmConfigured(Boolean(d.llmConfigured)))
       .catch(() => setLlmConfigured(null));
   }, []);
 
   async function loadDemo() {
-    const res = await fetch("/api/example");
+    const res = await fetch(apiUrl("/api/example"));
     const data = await res.json();
     setRepoPath(data.repoPath);
     setBugReport(data.bugReport);
@@ -111,7 +112,7 @@ export default function App() {
     }
     setStarting(true);
     try {
-      const res = await fetch("/api/jobs", {
+      const res = await fetch(apiUrl("/api/jobs"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ repoPath, bugReport, dryRun, multiBug: multiBug ? true : undefined }),

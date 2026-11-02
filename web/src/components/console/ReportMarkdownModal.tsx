@@ -6,6 +6,7 @@
 // no markdown-to-HTML rendering pulled in for this) per the brief: real and readable is enough.
 import { useEffect, useState } from "react";
 import { IconX } from "@tabler/icons-react";
+import { apiUrl } from "@/lib/apiBase";
 
 export function ReportMarkdownModal({ jobId, onClose }: { jobId: string; onClose: () => void }) {
   const [content, setContent] = useState<string | null>(null);
@@ -13,7 +14,7 @@ export function ReportMarkdownModal({ jobId, onClose }: { jobId: string; onClose
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/jobs/${jobId}/report.md`)
+    fetch(apiUrl(`/api/jobs/${jobId}/report.md`))
       .then(async (res) => {
         const text = await res.text();
         if (!res.ok) throw new Error(text || `Failed to load report.md (${res.status}).`);

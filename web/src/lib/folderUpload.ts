@@ -9,6 +9,8 @@
 // server/src/upload.ts — a File's own `name` can't carry "/" across multipart form data, so the
 // relative path rides as a separate text field per file).
 
+import { apiUrl } from "./apiBase";
+
 export interface CollectedFile {
   file: File;
   path: string;
@@ -116,7 +118,7 @@ export async function uploadFolder(files: CollectedFile[]): Promise<UploadResult
     form.append("files", f.file, f.file.name);
     form.append("paths", f.path);
   }
-  const res = await fetch("/api/upload", { method: "POST", body: form });
+  const res = await fetch(apiUrl("/api/upload"), { method: "POST", body: form });
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(body.error || "Upload failed.");

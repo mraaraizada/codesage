@@ -23,7 +23,11 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
-const PORT = Number(process.env.CODESAGE_SERVER_PORT) || 8787;
+// `PORT` is the standard env var most hosts (Render, Railway, Heroku) inject and require the app
+// to bind to; `CODESAGE_SERVER_PORT` is this project's own override for local dev. `PORT` wins
+// when both are set, since a host-injected port is not optional — the platform's own router won't
+// reach the app on any other port.
+const PORT = Number(process.env.PORT) || Number(process.env.CODESAGE_SERVER_PORT) || 8787;
 const EXAMPLE_REPO_PATH = join(REPO_ROOT, "examples", "buggy-react-login");
 const EXAMPLE_BUG_REPORT =
   "After a user enters correct credentials and clicks 'Log in', the app shows they're logged in, but it never navigates to /dashboard. The auth state updates correctly, navigation just doesn't happen.";
