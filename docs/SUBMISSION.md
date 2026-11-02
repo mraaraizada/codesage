@@ -54,7 +54,7 @@ CodeSage is an evidence-driven, verification-first debugging agent:
 - **Demo fixture:** React, a stale-closure state bug, Vitest + Testing Library.
 
 ## Repo link
-`<placeholder — fill in with the submitted repository URL>`
+https://github.com/mraaraizada/codesage
 
 ## Demo instructions
 ```bash
@@ -87,4 +87,5 @@ bash scripts/demo-cli.sh
   useless. CodeSage's limitations section is a feature, not a disclaimer.
 
 ## Team
-`<placeholder — add team member names / roles>`
+- **Aditya Raizada** — Full Stack Developer
+- **Sejal Bhardwaj** — Frontend Developer
