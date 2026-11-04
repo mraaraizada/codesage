@@ -9,6 +9,7 @@ const VARIANTS: Record<VerificationStatus, BadgeVariant> = {
   "tests-still-failing": "destructive",
   "patch-did-not-apply": "destructive",
   "no-tests-detected": "warning",
+  "applied-unverified": "warning",
   "dry-run-no-llm": "brand",
   inconclusive: "warning",
 };
@@ -18,6 +19,7 @@ const LABELS: Record<VerificationStatus, string> = {
   "tests-still-failing": "Tests Still Failing",
   "patch-did-not-apply": "Patch Did Not Apply",
   "no-tests-detected": "No Tests Detected",
+  "applied-unverified": "Applied, Unverified",
   "dry-run-no-llm": "Dry Run (No LLM Stage)",
   inconclusive: "Inconclusive",
 };

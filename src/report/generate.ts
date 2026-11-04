@@ -127,6 +127,8 @@ function statusBadge(status: CodeSageReport["verification"]): string {
       return "PATCH DID NOT APPLY";
     case "no-tests-detected":
       return "NO TESTS DETECTED";
+    case "applied-unverified":
+      return "APPLIED, UNVERIFIED";
     case "dry-run-no-llm":
       return "DRY RUN (NO LLM STAGE)";
     default:

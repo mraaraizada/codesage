@@ -13,8 +13,9 @@ dotenv.config({ path: join(REPO_ROOT, ".env") });
 
 import express from "express";
 import cors from "cors";
+import { readFileSync as readFileSyncFs, writeFileSync as writeFileSyncFs } from "node:fs";
 import { renderMarkdown, renderMultiMarkdown } from "../../src/report/generate.js";
-import { isLLMConfigured } from "../../src/llm/client.js";
+import { isLLMConfigured, describeProviders, resetProviderCache } from "../../src/llm/client.js";
 import { startJob, getJob, workspaceAvailable, effectiveWorkspaceDir, startWorkspaceRetentionSweeper, loadJobsFromDisk } from "./jobs.js";
 import { listWorkspaceFiles, readWorkspaceFile, streamWorkspaceZip, PathTraversalError, FileTooLargeError } from "./files.js";
 import { uploadMiddleware, materializeUpload, UploadRejectedError } from "./upload.js";
@@ -38,6 +39,51 @@ app.get("/api/health", (_req, res) => {
 
 app.get("/api/example", (_req, res) => {
   res.json({ repoPath: EXAMPLE_REPO_PATH, bugReport: EXAMPLE_BUG_REPORT });
+});
+
+app.get("/api/settings", (_req, res) => {
+  res.json({ llmConfigured: isLLMConfigured(), providers: describeProviders() });
+});
+
+const ENV_PATH = join(REPO_ROOT, ".env");
+const API_KEY_ENV_VARS = ["GROQ_API_KEY", "GROQ_API_KEY_2", "OPENROUTER_API_KEY", "ANTHROPIC_API_KEY"] as const;
+type ApiKeyEnvVar = (typeof API_KEY_ENV_VARS)[number];
+
+/** Updates (or appends) a single `KEY=value` line in the .env file on disk, leaving every other
+ * line untouched — never rewrites the whole file from a parsed/re-serialized representation, so
+ * comments and formatting the user already has survive. */
+function setEnvVarInFile(envVar: ApiKeyEnvVar, value: string): void {
+  let lines: string[] = [];
+  if (existsSync(ENV_PATH)) {
+    lines = readFileSyncFs(ENV_PATH, "utf8").split("\n");
+  }
+  const pattern = new RegExp(`^${envVar}=`);
+  const idx = lines.findIndex((l) => pattern.test(l));
+  const newLine = `${envVar}=${value}`;
+  if (idx >= 0) lines[idx] = newLine;
+  else lines.push(newLine);
+  writeFileSyncFs(ENV_PATH, lines.join("\n"), "utf8");
+}
+
+app.post("/api/settings/api-key", (req, res) => {
+  const { envVar, apiKey } = req.body ?? {};
+  if (typeof envVar !== "string" || !API_KEY_ENV_VARS.includes(envVar as ApiKeyEnvVar)) {
+    res.status(400).json({ error: `envVar must be one of: ${API_KEY_ENV_VARS.join(", ")}` });
+    return;
+  }
+  if (typeof apiKey !== "string" || !apiKey.trim()) {
+    res.status(400).json({ error: "apiKey is required." });
+    return;
+  }
+  const trimmed = apiKey.trim();
+  try {
+    setEnvVarInFile(envVar as ApiKeyEnvVar, trimmed);
+    process.env[envVar] = trimmed;
+    resetProviderCache();
+    res.json({ ok: true, providers: describeProviders() });
+  } catch (err) {
+    res.status(500).json({ error: `Failed to update .env: ${(err as Error).message}` });
+  }
 });
 
 app.post("/api/jobs", (req, res) => {

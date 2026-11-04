@@ -31,12 +31,11 @@ const DEFAULT_MODELS = {
   // docs/ARCHITECTURE.md). Groq's lineup changes frequently; override with CODESAGE_MODEL if a
   // different Groq model is preferred.
   groq: "openai/gpt-oss-120b",
-  // Verified against this account's real OpenRouter /models listing: there is no ":free" variant
-  // of gpt-oss (that was a wrong assumption — OpenRouter's actual free tier is a different, smaller
-  // curated model set, none of them gpt-oss). "openai/gpt-oss-20b" (no suffix) is real and does
-  // exist, at a genuinely tiny cost (~$0.00000003/prompt token, ~$0.00000013/completion token) —
-  // used only as a last-resort fallback when both Groq keys above are rate-limited.
-  openrouter: "openai/gpt-oss-20b",
+  // Matches the Groq model (same weight class, same "openai/gpt-oss-120b" id) rather than a
+  // smaller variant: a smaller OpenRouter model was observed in real multi-bug batches to return a
+  // genuinely empty response more often, degrading investigations that would otherwise succeed.
+  // Used only as a last-resort fallback once both Groq keys above are rate-limited.
+  openrouter: "openai/gpt-oss-120b",
 } as const;
 
 export type ProviderKind = "anthropic" | "groq";
@@ -58,10 +57,53 @@ export function isLLMConfigured(): boolean {
   return resolveProviderKind() !== null;
 }
 
+/** Last-4-chars-only view of a key, for display — never the real value. */
+function maskKey(key: string): string {
+  return key.length <= 4 ? "•".repeat(key.length) : `${"•".repeat(Math.min(key.length - 4, 20))}${key.slice(-4)}`;
+}
+
+export interface ProviderStatus {
+  label: string;
+  configured: boolean;
+  active: boolean;
+  model: string | null;
+  maskedKey: string | null;
+}
+
+/** Describes every provider/key slot CodeSage knows how to use and whether it's actually
+ * configured right now, for a read-only settings view — real values are never exposed, only a
+ * masked last-4 and whether a key is present. "active" marks which one the pipeline will actually
+ * use first (the resolved provider kind), not just "is a key present". */
+export function describeProviders(): ProviderStatus[] {
+  const kind = resolveProviderKind();
+  const groqModel = process.env.CODESAGE_MODEL?.trim() || DEFAULT_MODELS.groq;
+  const openrouterModel = process.env.OPENROUTER_MODEL?.trim() || DEFAULT_MODELS.openrouter;
+  const anthropicModel = process.env.CODESAGE_MODEL?.trim() || DEFAULT_MODELS.anthropic;
+
+  const entries: { envVar: string; label: string; model: string; providerKind: ProviderKind }[] = [
+    { envVar: "GROQ_API_KEY", label: "Groq (primary key)", model: groqModel, providerKind: "groq" },
+    { envVar: "GROQ_API_KEY_2", label: "Groq (secondary key)", model: groqModel, providerKind: "groq" },
+    { envVar: "OPENROUTER_API_KEY", label: "OpenRouter (fallback)", model: openrouterModel, providerKind: "groq" },
+    { envVar: "ANTHROPIC_API_KEY", label: "Anthropic Claude", model: anthropicModel, providerKind: "anthropic" },
+  ];
+
+  return entries.map(({ envVar, label, model, providerKind }) => {
+    const value = process.env[envVar]?.trim();
+    const configured = Boolean(value);
+    return {
+      label,
+      configured,
+      active: configured && kind === providerKind,
+      model: configured ? model : null,
+      maskedKey: configured && value ? maskKey(value) : null,
+    };
+  });
+}
+
 /** Builds the ordered list of Groq/OpenRouter-style backends from whichever keys are actually
  * configured. The order is deliberate: primary Groq key first (fastest, most capable model),
- * secondary Groq key next (same model, separate quota), OpenRouter's free tier last (a resort, not
- * a first choice — free-tier routing is typically slower/less reliable). */
+ * secondary Groq key next (same model, separate quota), OpenRouter last (a resort, not a first
+ * choice — only reached once both Groq keys are exhausted). */
 function buildGroqStyleBackends(): FallbackBackend[] {
   const model = process.env.CODESAGE_MODEL?.trim() || DEFAULT_MODELS.groq;
   const backends: FallbackBackend[] = [];
@@ -75,13 +117,35 @@ function buildGroqStyleBackends(): FallbackBackend[] {
   const openrouterKey = process.env.OPENROUTER_API_KEY?.trim();
   if (openrouterKey) {
     const openrouterModel = process.env.OPENROUTER_MODEL?.trim() || DEFAULT_MODELS.openrouter;
-    backends.push({ label: "OpenRouter (free tier)", apiKey: openrouterKey, model: openrouterModel, baseURL: OPENROUTER_BASE_URL });
+    backends.push({ label: "OpenRouter (fallback)", apiKey: openrouterKey, model: openrouterModel, baseURL: OPENROUTER_BASE_URL });
   }
 
   return backends;
 }
 
 let cached: LLMProvider | null = null;
+
+/** Forces the next getProvider() call to rebuild from current process.env instead of reusing a
+ * stale cached instance — needed after an API key is updated at runtime (see the settings page's
+ * "update key" endpoint in server/src/index.ts), since env vars normally only change at process
+ * start. */
+export function resetProviderCache(): void {
+  cached = null;
+}
+
+/** Builds an OpenRouter-ONLY provider, bypassing the Groq keys entirely — used for multi-bug
+ * batches when the user explicitly checks "this report describes multiple unrelated bugs"
+ * (forceMulti). Multi-bug batches run many more LLM calls than a single-bug investigation (one
+ * full investigation + patch + reproduction-test generation per sub-bug, all against the two
+ * shared Groq keys), so routing them to OpenRouter instead keeps the Groq keys' quota free for
+ * ordinary single-bug runs. Returns null (never throws) when OPENROUTER_API_KEY isn't configured —
+ * callers must fall back to the normal getProvider() chain in that case. */
+export function getOpenRouterOnlyProvider(): LLMProvider | null {
+  const key = process.env.OPENROUTER_API_KEY?.trim();
+  if (!key) return null;
+  const model = process.env.OPENROUTER_MODEL?.trim() || DEFAULT_MODELS.openrouter;
+  return new FallbackProvider([{ label: "OpenRouter (forced for multi-bug)", apiKey: key, model, baseURL: OPENROUTER_BASE_URL }]);
+}
 
 export function getProvider(): LLMProvider {
   const kind = resolveProviderKind();

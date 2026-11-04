@@ -188,6 +188,12 @@ export function getJob(id: string): JobState | undefined {
   return jobs.get(id);
 }
 
+/** Every job currently held in memory (includes ones restored from disk at startup) — used for
+ * read-only aggregate stats (the settings page), never for anything that mutates state. */
+export function getAllJobs(): JobState[] {
+  return [...jobs.values()];
+}
+
 /** The real directory to read this job's files from — the permanent saved copy if it still
  * exists on disk (survives a restart; see projectStore.ts), falling back to the temp isolated
  * workspace for a job that hasn't been saved yet (still running, or saving failed) or whose

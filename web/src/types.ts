@@ -72,6 +72,7 @@ export type VerificationStatus =
   | "tests-still-failing"
   | "patch-did-not-apply"
   | "no-tests-detected"
+  | "applied-unverified"
   | "dry-run-no-llm"
   | "inconclusive";
 
@@ -112,6 +113,11 @@ export interface SubBugResult {
   crashed: boolean;
   error: string | null;
   kept: boolean;
+  reproTest: {
+    relPath: string;
+    failedBeforePatch: boolean | null;
+    passedAfterPatch: boolean | null;
+  } | null;
 }
 
 export interface MultiBugReport {

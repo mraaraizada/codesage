@@ -5,6 +5,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { getProvider } from "./client.js";
+import type { LLMProvider } from "./provider.js";
 import type { InvestigationResult, PatchResult } from "../types.js";
 
 function extractDiffBlock(text: string): string | null {
@@ -21,9 +22,9 @@ export async function proposePatch(
   workspaceDir: string,
   investigation: InvestigationResult,
   bugReport: string,
-  opts: { previousAttemptError?: string } = {}
+  opts: { previousAttemptError?: string; provider?: LLMProvider } = {}
 ): Promise<PatchResult> {
-  const provider = getProvider();
+  const provider = opts.provider ?? getProvider();
 
   const fileContents = investigation.filesToPatch
     .map((relPath) => {

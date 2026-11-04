@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useInvestigationRuns } from "./hooks/useInvestigationRuns";
 import { useUploadedProjects, type UploadedProject } from "./hooks/useUploadedProjects";
+import { useProjectNames } from "./hooks/useProjectNames";
 import { LeftSidebar } from "./components/console/LeftSidebar";
 import { MainPane } from "./components/console/MainPane";
 import { EffectsPanel } from "./components/console/EffectsPanel";
@@ -46,12 +47,14 @@ const VERIFICATION_TOAST: Record<VerificationStatus, { title: string; variant: "
   "tests-still-failing": { title: "Tests still failing", variant: "destructive" },
   "patch-did-not-apply": { title: "Patch did not apply", variant: "destructive" },
   "no-tests-detected": { title: "No tests detected", variant: "default" },
+  "applied-unverified": { title: "Applied, unverified", variant: "default" },
   "dry-run-no-llm": { title: "Dry run complete", variant: "brand" },
   inconclusive: { title: "Inconclusive", variant: "default" },
 };
 
 export default function App() {
   const { toasts, push, dismiss } = useToasts();
+  const mainScrollRef = useRef<HTMLDivElement>(null);
 
   const handleSettled = useCallback(
     (_id: string, job: JobState) => {
@@ -75,8 +78,9 @@ export default function App() {
     [push],
   );
 
-  const { metas, statusBarRuns, jobsById, selectedId, select, registerRun, hideFromStatusBar, reorderRuns, now } = useInvestigationRuns(handleSettled);
+  const { metas, statusBarRuns, jobsById, selectedId, select, registerRun, removeRun, hideFromStatusBar, reorderRuns, now } = useInvestigationRuns(handleSettled);
   const { uploads, addUpload, removeUpload, promoteByPath } = useUploadedProjects();
+  const { names: projectNames, rename: renameProject } = useProjectNames();
 
   const [repoPath, setRepoPath] = useState("");
   const [bugReport, setBugReport] = useState("");
@@ -126,6 +130,7 @@ export default function App() {
       registerRun({ id: jobId, repoPath, bugReport, startedAtMs: Date.now() });
       promoteByPath(repoPath); // a real run now represents this path — drop any matching upload entry
       push({ title: "Investigation started", description: basenameOfPath(repoPath), variant: "brand" });
+      mainScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       setSubmitError((err as Error).message);
     } finally {
@@ -179,35 +184,44 @@ export default function App() {
         onSelect={select}
         onSelectUpload={handleSelectUpload}
         onRemoveUpload={removeUpload}
+        onRemoveRun={removeRun}
         onInvestigateAgain={goToNewInvestigationWithPath}
         onNew={startFreshInvestigation}
+        projectNames={projectNames}
+        onRenameProject={renameProject}
       />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div className="flex min-h-0 flex-1">
-          <MainPane
-            run={selectedRun}
-            job={selectedJob}
-            now={now}
-            newForm={{
-              repoPath,
-              setRepoPath,
-              bugReport,
-              setBugReport,
-              dryRun,
-              setDryRun,
-              multiBug,
-              setMultiBug,
-              onLoadDemo: loadDemo,
-              onSubmit: startInvestigation,
-              submitError,
-              llmConfigured,
-              starting,
-              onFolderUploaded: handleFolderUploaded,
-            }}
-            onViewCode={selectedId !== "new" ? () => setViewingCodeJobId(selectedId) : undefined}
-          />
-          <EffectsPanel report={selectedJob?.report ?? null} running={selectedJob?.status === "running"} />
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div ref={mainScrollRef} className="min-h-0 flex-1 overflow-y-auto">
+              <MainPane
+                run={selectedRun}
+                job={selectedJob}
+                now={now}
+                newForm={{
+                  repoPath,
+                  setRepoPath,
+                  bugReport,
+                  setBugReport,
+                  dryRun,
+                  setDryRun,
+                  multiBug,
+                  setMultiBug,
+                  onLoadDemo: loadDemo,
+                  onSubmit: startInvestigation,
+                  submitError,
+                  llmConfigured,
+                  starting,
+                  onFolderUploaded: handleFolderUploaded,
+                }}
+                onViewCode={selectedId !== "new" ? () => setViewingCodeJobId(selectedId) : undefined}
+              />
+            </div>
+          </div>
+          {selectedRun && (
+            <EffectsPanel report={selectedJob?.report ?? null} running={selectedJob?.status === "running"} />
+          )}
         </div>
         <StatusBar runs={statusBarRuns} jobsById={jobsById} selectedId={selectedId} onSelect={select} onRemove={hideFromStatusBar} onReorder={reorderRuns} />
       </div>

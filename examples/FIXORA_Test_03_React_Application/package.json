@@ -1,0 +1,9 @@
+{
+  "name": "fixora-test-03-react-application",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {"dev":"vite --host 0.0.0.0","build":"vite build","test":"vitest run","test:watch":"vitest"},
+  "dependencies": {"@vitejs/plugin-react":"latest","vite":"latest","react":"latest","react-dom":"latest","react-router-dom":"latest","lucide-react":"latest"},
+  "devDependencies": {"vitest":"latest","jsdom":"latest","@testing-library/react":"latest","@testing-library/jest-dom":"latest"}
+}

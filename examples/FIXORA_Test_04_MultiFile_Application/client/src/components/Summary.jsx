@@ -1,0 +1,1 @@
+import React from 'react';export default function Summary({summary}){return <div className="summary"><article><small>TOTAL TASKS</small><strong>{summary.total}</strong></article><article><small>COMPLETED</small><strong>{summary.completed}</strong></article><article><small>PENDING</small><strong>{summary.pending}</strong></article></div>}

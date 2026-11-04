@@ -14,6 +14,7 @@
 // If neither finds more than one bug, the report is treated as a single bug (method "single") so
 // the caller can skip all orchestration overhead and just run the normal single-bug pipeline.
 import { getProvider, isLLMConfigured } from "./client.js";
+import type { LLMProvider } from "./provider.js";
 import type { SplitMethod } from "../types.js";
 
 export interface SubBugReport {
@@ -204,10 +205,10 @@ export function looksLikeGenuineBugSplit(subBugs: SubBugReport[], originalReport
 /** Strategy (a): a real LLM call via the existing provider/fallback chain. Returns a single-item
  * list (the whole original report, verbatim) on any failure/misconfiguration, so the caller falls
  * through to the single-bug pipeline rather than fabricating a split. */
-async function tryLlmSplit(bugReport: string): Promise<SubBugReport[]> {
+async function tryLlmSplit(bugReport: string, providerOverride?: LLMProvider): Promise<SubBugReport[]> {
   if (!isLLMConfigured()) return [];
   try {
-    const provider = getProvider();
+    const provider = providerOverride ?? getProvider();
     const text = await provider.complete({
       system: SPLIT_SYSTEM_PROMPT,
       userMessage: `Bug report:\n"""\n${bugReport}\n"""`,
@@ -226,6 +227,10 @@ export interface SplitOptions {
   /** Explicit UI override: skip structural detection and go straight to the LLM splitter (still
    * collapses to "single" if the model itself returns only one item). */
   forceMulti?: boolean;
+  /** Use this provider for the LLM split call instead of the default chain — multiPipeline.ts
+   * passes its OpenRouter-only provider here when forceMulti is set, so the split call doesn't spend
+   * Groq quota on a batch the user already told us is a multi-bug report. */
+  provider?: LLMProvider;
 }
 
 export async function splitBugReport(bugReport: string, opts: SplitOptions = {}): Promise<SplitResult> {
@@ -240,7 +245,7 @@ export async function splitBugReport(bugReport: string, opts: SplitOptions = {})
     if (structural.length >= 2) return { method: "structural", subBugs: structural };
   }
 
-  const llmSplit = await tryLlmSplit(trimmed);
+  const llmSplit = await tryLlmSplit(trimmed, opts.provider);
   if (llmSplit.length >= 2 && looksLikeGenuineBugSplit(llmSplit, trimmed)) {
     return { method: "llm", subBugs: llmSplit };
   }

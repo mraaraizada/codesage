@@ -198,6 +198,27 @@ export function useInvestigationRuns(onSettled?: (id: string, job: JobState) => 
     });
   }
 
+  /** Forgets a run from the sidebar entirely (unlike `hideFromStatusBar`, which only hides it from
+   * that one strip) — removes it from `metas`, drops its cached job state, and deselects it if it
+   * was the current selection. Does not delete anything server-side; the job's report still exists
+   * there until the server's own retention sweep, this just stops the UI from tracking it. */
+  function removeRun(id: string) {
+    setMetas((prev) => {
+      const next = prev.filter((m) => m.id !== id);
+      saveMetas(next);
+      return next;
+    });
+    setJobsById((prev) => {
+      const { [id]: _removed, ...rest } = prev;
+      return rest;
+    });
+    setSelectedId((current) => {
+      if (current !== id) return current;
+      saveSelectedId("new");
+      return "new";
+    });
+  }
+
   /** User-driven manual reordering (e.g. drag-and-drop in the status bar) — persisted the same way
    * as every other change to the run list, so the custom order survives a reload. Reordering the
    * status bar also reorders the sidebar, since they share one underlying list — only visibility
@@ -209,5 +230,5 @@ export function useInvestigationRuns(onSettled?: (id: string, job: JobState) => 
 
   const statusBarRuns = metas.filter((m) => !hiddenFromStatusBar.has(m.id));
 
-  return { metas, statusBarRuns, jobsById, selectedId, select, registerRun, hideFromStatusBar, reorderRuns, now };
+  return { metas, statusBarRuns, jobsById, selectedId, select, registerRun, removeRun, hideFromStatusBar, reorderRuns, now };
 }

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { IconChevronRight, IconCloudUpload, IconFolder, IconPlus, IconX } from "@tabler/icons-react";
+import { IconChevronRight, IconCloudUpload, IconFolder, IconPencil, IconPlus, IconX } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -24,6 +24,8 @@ function ProjectRow({
   onInvestigateAgain,
   onSelectUpload,
   onRemoveUpload,
+  onRemoveRun,
+  onRename,
 }: {
   group: ProjectGroup;
   jobsById: Record<string, JobState | undefined>;
@@ -34,6 +36,8 @@ function ProjectRow({
   onInvestigateAgain: (repoPath: string) => void;
   onSelectUpload: (upload: UploadedProject) => void;
   onRemoveUpload: (id: string) => void;
+  onRemoveRun: (id: string) => void;
+  onRename: (key: string, name: string) => void;
 }) {
   const hasRuns = group.runs.length > 0;
   const latestRun = group.runs[0];
@@ -41,7 +45,20 @@ function ProjectRow({
   const isUploadOnly = !hasRuns && group.upload;
   const containsSelected = group.runs.some((r) => r.id === selectedId);
 
+  const [renaming, setRenaming] = useState(false);
+  const [draftName, setDraftName] = useState(group.name);
+
+  function startRename() {
+    setDraftName(group.name);
+    setRenaming(true);
+  }
+  function commitRename() {
+    onRename(group.key, draftName);
+    setRenaming(false);
+  }
+
   function handleRowClick() {
+    if (renaming) return;
     if (isUploadOnly && group.upload) {
       onSelectUpload(group.upload);
       return;
@@ -58,21 +75,50 @@ function ProjectRow({
           containsSelected ? "bg-accent text-accent-foreground" : "hover:bg-accent/60",
         )}
       >
-        <button type="button" onClick={handleRowClick} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-          {isUploadOnly ? (
-            <Tooltip content="Uploaded — awaiting a bug report">
-              <IconCloudUpload className="size-3.5 shrink-0 text-warning" stroke={2} />
-            </Tooltip>
-          ) : (
-            <StatusDot job={latestJob} />
-          )}
-          <span className="min-w-0 flex-1 truncate font-medium">{group.name}</span>
-          {group.runs.length > 1 && <span className="shrink-0 text-xs text-muted-foreground">{group.runs.length} runs</span>}
-        </button>
+        {renaming ? (
+          <input
+            autoFocus
+            value={draftName}
+            onChange={(e) => setDraftName(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitRename();
+              if (e.key === "Escape") setRenaming(false);
+            }}
+            className="min-w-0 flex-1 rounded border border-border bg-background px-1.5 py-0.5 text-sm font-medium outline-none"
+          />
+        ) : (
+          <button type="button" onClick={handleRowClick} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+            {isUploadOnly ? (
+              <Tooltip content="Uploaded — awaiting a bug report">
+                <IconCloudUpload className="size-3.5 shrink-0 text-warning" stroke={2} />
+              </Tooltip>
+            ) : (
+              <StatusDot job={latestJob} />
+            )}
+            <span className="min-w-0 flex-1 truncate font-medium">{group.name}</span>
+            {group.runs.length > 1 && <span className="shrink-0 text-xs text-muted-foreground">{group.runs.length} runs</span>}
+          </button>
+        )}
 
-        <span className="shrink-0 text-xs text-muted-foreground">{relativeTime(group.latestAtMs)}</span>
+        {!renaming && <span className="shrink-0 text-xs text-muted-foreground">{relativeTime(group.latestAtMs)}</span>}
 
-        {hasRuns ? (
+        {!renaming && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              startRename();
+            }}
+            className="hidden size-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground group-hover/project:flex"
+            aria-label="Rename project"
+            title="Rename project (display name only — the repo path is unchanged)"
+          >
+            <IconPencil className="size-3.5" stroke={1.75} />
+          </button>
+        )}
+
+        {!renaming && hasRuns && (
           <button
             type="button"
             onClick={(e) => {
@@ -84,7 +130,8 @@ function ProjectRow({
           >
             <IconChevronRight className={cn("size-3.5 transition-transform", expanded && "rotate-90")} />
           </button>
-        ) : (
+        )}
+        {!renaming && !hasRuns && (
           <button
             type="button"
             onClick={(e) => {
@@ -105,19 +152,31 @@ function ProjectRow({
             const job = jobsById[run.id];
             const active = selectedId === run.id;
             return (
-              <button
+              <div
                 key={run.id}
-                type="button"
-                onClick={() => onSelectRun(run.id)}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
+                  "group/run flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
                   active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                 )}
               >
-                <StatusDot job={job} className="size-1.5" />
-                <span className="min-w-0 flex-1 truncate">{truncateMiddle(run.bugReport, 42)}</span>
-                <span className="shrink-0">{relativeTime(run.startedAtMs)}</span>
-              </button>
+                <button type="button" onClick={() => onSelectRun(run.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                  <StatusDot job={job} className="size-1.5" />
+                  <span className="min-w-0 flex-1 truncate">{truncateMiddle(run.bugReport, 42)}</span>
+                  <span className="shrink-0">{relativeTime(run.startedAtMs)}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveRun(run.id);
+                  }}
+                  className="hidden size-4 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground group-hover/run:flex"
+                  aria-label="Remove this investigation from the sidebar"
+                  title="Remove from sidebar (keeps the report on the server)"
+                >
+                  <IconX className="size-3" stroke={2} />
+                </button>
+              </div>
             );
           })}
           <button
@@ -142,8 +201,11 @@ export function LeftSidebar({
   onSelect,
   onSelectUpload,
   onRemoveUpload,
+  onRemoveRun,
   onInvestigateAgain,
   onNew,
+  projectNames,
+  onRenameProject,
 }: {
   runs: RunMeta[];
   uploads: UploadedProject[];
@@ -152,8 +214,11 @@ export function LeftSidebar({
   onSelect: (id: string) => void;
   onSelectUpload: (upload: UploadedProject) => void;
   onRemoveUpload: (id: string) => void;
+  onRemoveRun: (id: string) => void;
   onInvestigateAgain: (repoPath: string) => void;
   onNew: () => void;
+  projectNames: Record<string, string>;
+  onRenameProject: (key: string, name: string) => void;
 }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
@@ -167,7 +232,7 @@ export function LeftSidebar({
     });
   }
 
-  const groups = groupByProject(runs, uploads);
+  const groups = groupByProject(runs, uploads, projectNames);
   const visible = groups.filter((g) => {
     if (filter === "all") return true;
     return g.runs.some((r) => jobsById[r.id]?.status === "running");
@@ -231,11 +296,14 @@ export function LeftSidebar({
                 onInvestigateAgain={onInvestigateAgain}
                 onSelectUpload={onSelectUpload}
                 onRemoveUpload={onRemoveUpload}
+                onRemoveRun={onRemoveRun}
+                onRename={onRenameProject}
               />
             ))}
           </div>
         )}
       </div>
+
     </aside>
   );
 }

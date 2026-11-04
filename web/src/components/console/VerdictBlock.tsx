@@ -8,6 +8,7 @@ const COLOR: Record<CodeSageReport["verification"], string> = {
   "tests-still-failing": "text-destructive",
   "patch-did-not-apply": "text-destructive",
   "no-tests-detected": "text-warning",
+  "applied-unverified": "text-warning",
   "dry-run-no-llm": "text-brand",
   inconclusive: "text-warning",
 };
@@ -17,6 +18,7 @@ const LABEL: Record<CodeSageReport["verification"], string> = {
   "tests-still-failing": "Tests still failing",
   "patch-did-not-apply": "Patch did not apply",
   "no-tests-detected": "No tests detected",
+  "applied-unverified": "Applied, unverified",
   "dry-run-no-llm": "Dry run — no LLM stage",
   inconclusive: "Inconclusive",
 };

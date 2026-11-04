@@ -16,6 +16,7 @@ const STATUS_VARIANT: Record<VerificationStatus, "success" | "destructive" | "wa
   "tests-still-failing": "destructive",
   "patch-did-not-apply": "destructive",
   "no-tests-detected": "warning",
+  "applied-unverified": "warning",
   "dry-run-no-llm": "brand",
   inconclusive: "warning",
 };
@@ -25,6 +26,7 @@ const STATUS_LABEL: Record<VerificationStatus, string> = {
   "tests-still-failing": "Tests still failing",
   "patch-did-not-apply": "Patch did not apply",
   "no-tests-detected": "No tests detected",
+  "applied-unverified": "Applied, unverified",
   "dry-run-no-llm": "Dry run",
   inconclusive: "Inconclusive",
 };
@@ -60,6 +62,19 @@ function TestBar({ label, result }: { label: string; result: TestRunResult | nul
         )}
       </div>
     </div>
+  );
+}
+
+function ReproBadge({ label, state }: { label: string; state: boolean | null }) {
+  return (
+    <span
+      className={cn(
+        "rounded-full px-2 py-0.5 font-medium",
+        state === true ? "bg-success/15 text-success" : state === false ? "bg-destructive/15 text-destructive" : "bg-muted text-muted-foreground",
+      )}
+    >
+      {label}: {state === true ? "passed" : state === false ? "failed" : "unknown"}
+    </span>
   );
 }
 
@@ -109,6 +124,20 @@ function SubBugCard({ sub }: { sub: SubBugResult }) {
               <TestBar label="Full suite before" result={sub.testsBefore} />
               <IconChevronRight className="size-4 shrink-0 text-muted-foreground" stroke={1.75} />
               <TestBar label="Full suite after" result={sub.testsAfter} />
+            </div>
+          )}
+
+          {sub.reproTest && (
+            <div className="flex max-w-xl items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2.5 text-xs">
+              <div className="min-w-0">
+                <div className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Bug-specific reproduction test</div>
+                <div className="mt-0.5 truncate font-mono text-muted-foreground">{sub.reproTest.relPath}</div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <ReproBadge label="Before" state={sub.reproTest.failedBeforePatch === null ? null : !sub.reproTest.failedBeforePatch} />
+                <IconChevronRight className="size-3.5 shrink-0 text-muted-foreground" stroke={1.75} />
+                <ReproBadge label="After" state={sub.reproTest.passedAfterPatch} />
+              </div>
             </div>
           )}
 

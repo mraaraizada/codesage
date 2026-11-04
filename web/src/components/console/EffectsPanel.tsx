@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { IconChevronRight } from "@tabler/icons-react";
+import { IconChevronRight, IconGitCompare } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { truncateMiddle } from "@/lib/format";
 import { parseDiffStats, totalStats, type FileDiffStat } from "@/lib/diffStats";
@@ -68,14 +68,32 @@ function DiffLoadingSkeleton() {
   );
 }
 
-export function EffectsPanel({ report, running }: { report: CodeSageReport | MultiBugReport | null; running: boolean }) {
+export function EffectsPanel({
+  report,
+  running,
+  docked = false,
+}: {
+  report: CodeSageReport | MultiBugReport | null;
+  running: boolean;
+  /** Once the final report is in, this panel docks at the bottom-middle of the page
+   * instead of sitting pinned to the right edge for the whole investigation. */
+  docked?: boolean;
+}) {
   const [tab, setTab] = useState<(typeof TABS)[number]>("Diff");
   const stats = report ? parseDiffStats(report.kind === "multi" ? combinedDiffText(report) : report.patch?.diffText ?? "") : [];
   const totals = totalStats(stats);
   const showLoading = running && stats.length === 0;
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col border-l border-sidebar-border bg-sidebar text-sidebar-foreground">
+    <aside
+      className={cn(
+        "flex shrink-0 flex-col bg-sidebar text-sidebar-foreground",
+        docked
+          ? "mx-auto mb-4 w-full max-w-2xl rounded-xl border border-sidebar-border shadow-lg"
+          : "w-80 border-l border-sidebar-border",
+      )}
+      style={docked ? { maxHeight: "40vh" } : undefined}
+    >
       <div className="flex h-12 shrink-0 items-center gap-1 border-b border-sidebar-border px-3">
         {TABS.map((t) => {
           const disabled = t === "Graph";
@@ -108,32 +126,29 @@ export function EffectsPanel({ report, running }: { report: CodeSageReport | Mul
         </div>
       ) : showLoading ? (
         <DiffLoadingSkeleton />
+      ) : stats.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+          <IconGitCompare className="size-6 text-muted-foreground/50" stroke={1.5} />
+          <p className="text-sm text-muted-foreground">{report ? "No patch applied yet." : "Start an investigation to see the diff here."}</p>
+        </div>
       ) : (
         <>
           <div className="border-b border-sidebar-border px-4 py-3 text-xs">
-            {stats.length === 0 ? (
-              <span className="text-muted-foreground">No changes yet.</span>
-            ) : (
-              <span>
-                <span className="font-medium">{stats.length}</span> file{stats.length === 1 ? "" : "s"} changed &nbsp;
-                <span className="text-success">+{totals.added}</span> <span className="text-destructive">-{totals.removed}</span>
-              </span>
-            )}
+            <span>
+              <span className="font-medium">{stats.length}</span> file{stats.length === 1 ? "" : "s"} changed &nbsp;
+              <span className="text-success">+{totals.added}</span> <span className="text-destructive">-{totals.removed}</span>
+            </span>
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {stats.length === 0 ? (
-              <p className="px-4 py-6 text-center text-sm text-muted-foreground">{report ? "No patch applied yet." : "Start an investigation to see effects."}</p>
-            ) : (
-              <div>
-                <div className="px-4 pt-3 pb-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                  Apply & re-test ({stats.length})
-                </div>
-                {stats.map((s) => (
-                  <FileRow key={s.path} stat={s} />
-                ))}
+            <div>
+              <div className="px-4 pt-3 pb-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                Apply & re-test ({stats.length})
               </div>
-            )}
+              {stats.map((s) => (
+                <FileRow key={s.path} stat={s} />
+              ))}
+            </div>
           </div>
         </>
       )}

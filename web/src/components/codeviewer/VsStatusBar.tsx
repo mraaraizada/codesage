@@ -8,6 +8,7 @@ const VERDICT_META: Record<CodeSageReport["verification"], { icon: typeof IconCh
   "tests-still-failing": { icon: IconX, label: "Tests still failing", tone: "bg-[#c72e2e]" },
   "patch-did-not-apply": { icon: IconX, label: "Patch did not apply", tone: "bg-[#c72e2e]" },
   "no-tests-detected": { icon: IconAlertTriangle, label: "No tests detected", tone: "bg-[#8a6d1e]" },
+  "applied-unverified": { icon: IconAlertTriangle, label: "Applied, unverified", tone: "bg-[#8a6d1e]" },
   "dry-run-no-llm": { icon: IconAlertTriangle, label: "Dry run", tone: "bg-[#2472c8]" },
   inconclusive: { icon: IconAlertTriangle, label: "Inconclusive", tone: "bg-[#8a6d1e]" },
 };

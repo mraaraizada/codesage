@@ -4,6 +4,7 @@
 // iterations) driven by whichever LLMProvider is configured (Anthropic or Groq — see client.ts).
 import { getProvider, DEFAULT_MAX_ITERATIONS } from "./client.js";
 import { AGENT_TOOLS, executeToolCall } from "./tools.js";
+import type { LLMProvider } from "./provider.js";
 import type { RepoIndex, InvestigationResult, SearchHit } from "../types.js";
 
 function buildSystemPrompt(index: RepoIndex, searchHits: SearchHit[]): string {
@@ -81,23 +82,63 @@ export async function investigateBug(
   index: RepoIndex,
   bugReport: string,
   searchHits: SearchHit[],
-  opts: { maxIterations?: number; onIteration?: (n: number, note: string) => void } = {}
+  opts: { maxIterations?: number; onIteration?: (n: number, note: string) => void; provider?: LLMProvider } = {}
 ): Promise<InvestigationResult> {
-  const provider = getProvider();
+  const provider = opts.provider ?? getProvider();
   const maxIterations = opts.maxIterations ?? DEFAULT_MAX_ITERATIONS;
   const system = buildSystemPrompt(index, searchHits);
+  const userMessage = `Bug report from the user:\n"""\n${bugReport}\n"""\n\nInvestigate the root cause. Use your tools first; only produce the final JSON verdict once you have concrete file:line evidence.`;
 
-  const { finalText, toolCallLog, iterationsUsed, stoppedReason } = await provider.runAgentLoop({
+  let { finalText, toolCallLog, iterationsUsed, stoppedReason, providerErrorWasRateLimit } = await provider.runAgentLoop({
     system,
-    userMessage: `Bug report from the user:\n"""\n${bugReport}\n"""\n\nInvestigate the root cause. Use your tools first; only produce the final JSON verdict once you have concrete file:line evidence.`,
+    userMessage,
     tools: AGENT_TOOLS,
     maxIterations,
     executeTool: (name, input) => executeToolCall(index, name, input),
     onIteration: opts.onIteration,
   });
 
-  const jsonBlock = extractJsonBlock(finalText);
-  const parsed = jsonBlock ? tryParseLeniently(jsonBlock) : null;
+  let jsonBlock = extractJsonBlock(finalText);
+  let parsed = jsonBlock ? tryParseLeniently(jsonBlock) : null;
+
+  // One automatic retry, specifically for the "concluded but gave nothing usable" case — the
+  // model stopped calling tools on its own (it wasn't cut off by the iteration budget, and it
+  // wasn't a provider error) yet produced an empty or unparseable response. Observed in practice
+  // on a weaker fallback model (Groq's keys exhausted, OpenRouter's smaller gpt-oss-20b serving the
+  // request): this is non-deterministic, and a fresh attempt with the exact same evidence budget
+  // often succeeds where the first one returned nothing at all. Only retried once, and only for
+  // this specific failure shape — a genuine iteration-budget exhaustion or provider rejection isn't
+  // retried here, since a second attempt wouldn't address either of those causes.
+  if (!(parsed && typeof parsed === "object") && stoppedReason === "concluded") {
+    opts.onIteration?.(0, "Model concluded without a usable verdict; retrying the investigation once...");
+    const retry = await provider.runAgentLoop({
+      system,
+      userMessage,
+      tools: AGENT_TOOLS,
+      maxIterations,
+      executeTool: (name, input) => executeToolCall(index, name, input),
+      onIteration: opts.onIteration,
+    });
+    const retryJsonBlock = extractJsonBlock(retry.finalText);
+    const retryParsed = retryJsonBlock ? tryParseLeniently(retryJsonBlock) : null;
+    if (retryParsed && typeof retryParsed === "object") {
+      finalText = retry.finalText;
+      toolCallLog = [...toolCallLog, ...retry.toolCallLog];
+      iterationsUsed = iterationsUsed + retry.iterationsUsed;
+      stoppedReason = retry.stoppedReason;
+      providerErrorWasRateLimit = retry.providerErrorWasRateLimit;
+      jsonBlock = retryJsonBlock;
+      parsed = retryParsed;
+    } else {
+      // Retry also failed — report honestly using whichever attempt's text is more informative,
+      // and keep the combined tool-call log so neither attempt's real evidence is dropped.
+      finalText = retry.finalText || finalText;
+      toolCallLog = [...toolCallLog, ...retry.toolCallLog];
+      iterationsUsed = iterationsUsed + retry.iterationsUsed;
+      stoppedReason = retry.stoppedReason;
+      providerErrorWasRateLimit = retry.providerErrorWasRateLimit;
+    }
+  }
   if (parsed && typeof parsed === "object") {
     const p = parsed as Record<string, unknown>;
     return {
@@ -114,14 +155,17 @@ export async function investigateBug(
     };
   }
 
-  // Distinguish the two distinct degraded causes instead of one generic message — this directly
-  // tells the user which lever actually helps: a higher iteration budget only helps the first case.
+  // Distinguish the distinct degraded causes instead of one generic message — this directly tells
+  // the user which lever actually helps: a higher iteration budget only helps the first case, and a
+  // rate-limit exhaustion needs a different/additional API key or to wait, not a code-side retry.
   const rootCause =
     stoppedReason === "max-iterations"
       ? `The investigation ran out of its ${maxIterations}-iteration budget while still gathering evidence (it was still calling tools, not yet concluding) — it needed more turns than allotted. Re-run with a higher iteration budget.`
-      : stoppedReason === "provider-error"
-        ? "The LLM provider rejected a request mid-investigation (see the tool-call log for the exact error) — this ended the investigation early with whatever evidence had already been gathered."
-        : "The model stopped calling tools on its own but its final response did not contain a parseable structured verdict (malformed or missing JSON). This is a model-output reliability issue, not an iteration-budget issue — re-running the same investigation is the main option.";
+      : stoppedReason === "provider-error" && providerErrorWasRateLimit
+        ? "API limit exceeded: every configured LLM provider (Groq primary/secondary key, and OpenRouter if configured) is currently rate-limited or out of quota — none had room left for this request. Add a different or additional API key in .env, or wait for the limit to reset, then re-run this investigation."
+        : stoppedReason === "provider-error"
+          ? "The LLM provider rejected a request mid-investigation (see the tool-call log for the exact error) — this ended the investigation early with whatever evidence had already been gathered."
+          : "The model stopped calling tools on its own but its final response did not contain a parseable structured verdict (malformed or missing JSON), even after one automatic retry. This is a model-output reliability issue, not an iteration-budget issue — re-running the same investigation is the main option.";
 
   return {
     rootCause,

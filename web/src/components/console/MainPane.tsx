@@ -42,7 +42,7 @@ export function MainPane({
   if (!run) {
     const { starting, ...rest } = newForm;
     return (
-      <main className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-background">
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
         <NewInvestigationForm {...rest} running={starting} />
       </main>
     );

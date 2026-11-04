@@ -21,6 +21,26 @@ function toOpenAITools(tools: ToolSpec[]): OpenAI.Chat.Completions.ChatCompletio
   }));
 }
 
+// Some backends (observed directly on a free-tier key: a hard requests-PER-MINUTE cap, separate
+// from Groq's longer daily token cap) name the exact wait in their 429 body via
+// `retryDelay`/"Please retry in Ns". When that wait is short, sleeping it out and retrying once in
+// place is strictly better than immediately failing the whole sub-bug. Capped at
+// MAX_SHORT_RETRY_WAIT_MS so a genuine long/daily cap (Groq's) still fails fast and lets
+// fallbackProvider.ts move on to the next backend instead of blocking for hours.
+const MAX_SHORT_RETRY_WAIT_MS = 90_000;
+
+function parseRetryDelayMs(err: unknown): number | null {
+  const message = err instanceof Error ? err.message : String(err);
+  const match = message.match(/retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/) ?? message.match(/retry in (\d+(?:\.\d+)?)s/i);
+  if (!match) return null;
+  const seconds = Number(match[1]);
+  return Number.isFinite(seconds) ? Math.ceil(seconds * 1000) : null;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export class OpenAICompatibleProvider {
   readonly model: string;
   readonly label: string;
@@ -30,6 +50,23 @@ export class OpenAICompatibleProvider {
     this.client = new OpenAI({ apiKey, baseURL });
     this.model = model;
     this.label = label;
+  }
+
+  /** Runs `fn` once; on a rate-limit error that names a short retry delay (a per-minute RPM cap,
+   * not a long daily cap), sleeps exactly that long (plus a small buffer) and retries ONCE more.
+   * Any other error, or a wait longer than MAX_SHORT_RETRY_WAIT_MS, is re-thrown immediately so
+   * normal rate-limit handling (fallbackProvider.ts switching backends) still applies. */
+  private async withShortRateLimitRetry<T>(fn: () => Promise<T>, onWait?: (ms: number) => void): Promise<T> {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!isRateLimitError(err)) throw err;
+      const waitMs = parseRetryDelayMs(err);
+      if (waitMs === null || waitMs > MAX_SHORT_RETRY_WAIT_MS) throw err;
+      onWait?.(waitMs);
+      await sleep(waitMs + 1000);
+      return fn();
+    }
   }
 
   async runAgentLoop(params: AgentLoopParams): Promise<AgentLoopResult> {
@@ -51,13 +88,17 @@ export class OpenAICompatibleProvider {
 
       let response: OpenAI.Chat.Completions.ChatCompletion;
       try {
-        response = await this.client.chat.completions.create({
-          model: this.model,
-          max_tokens: 4096,
-          messages,
-          tools: openaiTools,
-          tool_choice: "auto",
-        });
+        response = await this.withShortRateLimitRetry(
+          () =>
+            this.client.chat.completions.create({
+              model: this.model,
+              max_tokens: 4096,
+              messages,
+              tools: openaiTools,
+              tool_choice: "auto",
+            }),
+          (ms) => onIteration?.(iteration, `${this.label} hit a short per-minute rate limit; waiting ${Math.ceil(ms / 1000)}s and retrying...`)
+        );
       } catch (err) {
         // Two distinct, real failure modes land here, and the message must not conflate them:
         // (1) gpt-oss models (Harmony format) occasionally hallucinate a call to one of their own
@@ -120,14 +161,16 @@ export class OpenAICompatibleProvider {
   }
 
   async complete(params: CompletionParams): Promise<string> {
-    const response = await this.client.chat.completions.create({
-      model: this.model,
-      max_tokens: params.maxTokens ?? 4096,
-      messages: [
-        { role: "system", content: params.system },
-        { role: "user", content: params.userMessage },
-      ],
-    });
+    const response = await this.withShortRateLimitRetry(() =>
+      this.client.chat.completions.create({
+        model: this.model,
+        max_tokens: params.maxTokens ?? 4096,
+        messages: [
+          { role: "system", content: params.system },
+          { role: "user", content: params.userMessage },
+        ],
+      })
+    );
     return response.choices[0]?.message?.content ?? "";
   }
 }

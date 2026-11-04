@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IconChevronRight, IconFileText } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { STAGE_GROUPS, eventsForGroup, groupStatus, type GroupStatus } from "@/lib/stages";
@@ -47,20 +47,41 @@ function StageListRow({
   status: GroupStatus;
   jobId?: string;
 }) {
+  // Auto-opens the moment a stage goes active (so the user watches it live), auto-closes once it
+  // finishes — except "Final report", which stays open once the run is done, since that's the one
+  // section meant to be left open for the user to read/act on. A manual click always wins over the
+  // automatic behavior until the stage's status next changes.
   const [open, setOpen] = useState(false);
+  const [userOverride, setUserOverride] = useState<boolean | null>(null);
+  const prevStatus = useRef<GroupStatus | null>(null);
   const [showReport, setShowReport] = useState(false);
+
+  useEffect(() => {
+    if (prevStatus.current === status) return;
+    prevStatus.current = status;
+    setUserOverride(null);
+    if (status === "active") setOpen(true);
+    else if (status === "complete" && group.key === "report") setOpen(true);
+    else setOpen(false);
+  }, [status, group.key]);
+
+  const effectiveOpen = userOverride ?? open;
   const hint = STATUS_HINT[status];
   return (
     <div className="border-b border-border">
-      <button type="button" onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-3 px-6 py-3 text-left transition-colors hover:bg-muted/40">
+      <button
+        type="button"
+        onClick={() => setUserOverride(!effectiveOpen)}
+        className="flex w-full items-center gap-3 px-6 py-3 text-left transition-colors hover:bg-muted/40"
+      >
         <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-md text-[11px] font-bold", BADGE_CLASSES[status])}>{group.initials}</span>
         <span className={cn("flex-1 text-sm font-medium", status === "skipped" && "text-muted-foreground")}>{group.label}</span>
         <span className="shrink-0 text-xs text-muted-foreground">
           {hint ?? `${events.length} step${events.length === 1 ? "" : "s"}`}
         </span>
-        <IconChevronRight className={cn("size-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-90")} />
+        <IconChevronRight className={cn("size-4 shrink-0 text-muted-foreground transition-transform", effectiveOpen && "rotate-90")} />
       </button>
-      {open && (
+      {effectiveOpen && (
         <div className="space-y-1 bg-muted/20 px-6 py-3 font-mono text-xs text-muted-foreground">
           {events.length === 0 ? (
             <div>Not reached in this run.</div>

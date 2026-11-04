@@ -29,7 +29,7 @@ export function normalizeRepoKey(repoPath: string): string {
   return repoPath.trim().replace(/[\\/]+$/, "").replace(/\\/g, "/").toLowerCase();
 }
 
-export function groupByProject(runs: RunMeta[], uploads: UploadedProject[]): ProjectGroup[] {
+export function groupByProject(runs: RunMeta[], uploads: UploadedProject[], nameOverrides: Record<string, string> = {}): ProjectGroup[] {
   const map = new Map<string, ProjectGroup>();
 
   for (const run of runs) {
@@ -54,6 +54,10 @@ export function groupByProject(runs: RunMeta[], uploads: UploadedProject[]): Pro
     }
   }
 
-  for (const group of map.values()) group.runs.sort((a, b) => b.startedAtMs - a.startedAtMs);
+  for (const group of map.values()) {
+    group.runs.sort((a, b) => b.startedAtMs - a.startedAtMs);
+    const override = nameOverrides[group.key];
+    if (override) group.name = override;
+  }
   return Array.from(map.values()).sort((a, b) => b.latestAtMs - a.latestAtMs);
 }

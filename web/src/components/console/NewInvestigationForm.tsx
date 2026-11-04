@@ -76,19 +76,19 @@ export function NewInvestigationForm({
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-8 pt-14 pb-20">
+    <div className="mx-auto flex h-full w-full max-w-7xl flex-col px-10 pt-8 pb-6">
       <div className="flex items-start gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground">
-          <IconSearch className="size-4.5" stroke={1.75} />
+        <div className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground">
+          <IconSearch className="size-5" stroke={1.75} />
         </div>
         <div className="min-w-0 pt-0.5">
-          <h2 className="text-lg font-semibold tracking-tight">New investigation</h2>
-          <p className="mt-1 text-sm text-pretty text-muted-foreground">Point CodeSage at a real repository and a real bug report to run the full pipeline.</p>
+          <h2 className="text-xl font-semibold tracking-tight">New investigation</h2>
+          <p className="mt-1 text-base text-pretty text-muted-foreground">Point CodeSage at a real repository and a real bug report to run the full pipeline.</p>
         </div>
       </div>
 
       {llmConfigured === false && (
-        <div className="mt-6 flex items-start gap-2.5 rounded-lg border border-warning/30 bg-warning/10 px-3.5 py-3 text-sm text-warning">
+        <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-warning/30 bg-warning/10 px-3.5 py-3 text-sm text-warning">
           <IconAlertTriangle className="mt-0.5 size-4 shrink-0" stroke={1.75} />
           <p>
             <span className="font-medium">No LLM provider configured.</span> Investigation and patch stages will be skipped (dry-run); indexing and keyword
@@ -97,12 +97,12 @@ export function NewInvestigationForm({
         </div>
       )}
 
-      <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div>
-      <PageCard>
-        <FieldGroup>
+      <div className="mt-5 grid flex-1 grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_26rem]">
+        <div className="flex min-h-0 flex-col">
+      <PageCard className="flex-1">
+        <FieldGroup className="h-full">
           <Field>
-            <FieldLabel htmlFor="repo-path">Repository path</FieldLabel>
+            <FieldLabel htmlFor="repo-path" className="text-base">Repository path</FieldLabel>
             <Input
               id="repo-path"
               value={repoPath}
@@ -111,7 +111,7 @@ export function NewInvestigationForm({
                 setUploaded(null);
               }}
               placeholder="C:\path\to\repo"
-              className="font-mono text-sm"
+              className="font-mono text-base h-11"
             />
 
             <div
@@ -171,27 +171,28 @@ export function NewInvestigationForm({
             </div>
           </Field>
 
-          <Field>
-            <FieldLabel htmlFor="bug-report">Bug report</FieldLabel>
+          <Field className="min-h-0 flex-1">
+            <FieldLabel htmlFor="bug-report" className="text-base">Bug report</FieldLabel>
             <Textarea
               id="bug-report"
               value={bugReport}
               onChange={(e) => setBugReport(e.target.value)}
-              rows={4}
+              rows={8}
+              className="h-full min-h-40 flex-1 resize-none text-base"
               placeholder="Describe what's wrong, as a user or QA engineer would report it..."
             />
           </Field>
 
-          <label className="flex w-fit items-center gap-2 text-sm text-muted-foreground">
+          <label className="flex w-fit items-center gap-2 text-base text-muted-foreground">
             <Checkbox checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} />
             Dry run (indexing + search only, skip LLM calls)
           </label>
 
-          <label className="flex w-fit items-center gap-2 text-sm text-muted-foreground">
+          <label className="flex w-fit items-center gap-2 text-base text-muted-foreground">
             <Checkbox checked={multiBug} onChange={(e) => setMultiBug(e.target.checked)} />
             This report describes multiple unrelated bugs
           </label>
-          <FieldDescription>
+          <FieldDescription className="text-sm">
             CodeSage auto-detects a multi-bug report (a numbered/headed list of bugs) and splits it automatically — check this only to force an LLM-based split
             when the report is free-form prose without that structure. Leave unchecked for an ordinary single-bug report.
           </FieldDescription>
@@ -200,43 +201,15 @@ export function NewInvestigationForm({
         </FieldGroup>
       </PageCard>
 
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <Button type="button" variant="ghost" size="sm" onClick={onLoadDemo} className="text-muted-foreground">
+      <div className="mt-5 flex items-center justify-between gap-3">
+        <Button type="button" variant="ghost" size="default" onClick={onLoadDemo} className="text-muted-foreground">
           Load demo (buggy-react-login)
         </Button>
-        <Button type="button" variant="brand" onClick={onSubmit} disabled={running}>
+        <Button type="button" variant="brand" size="lg" onClick={onSubmit} disabled={running}>
           {running ? "Investigating…" : "Investigate"}
         </Button>
       </div>
 
-      <div className="mt-10 border-t border-border pt-8">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">What a finished report looks like</p>
-          <Badge variant="outline">Example</Badge>
-        </div>
-        <div className="mt-4 overflow-hidden rounded-lg border border-border bg-card">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3.5">
-            <div>
-              <div className="text-xs font-semibold tracking-widest text-muted-foreground">VERDICT</div>
-              <div className="mt-0.5 text-base font-bold text-success">Verified fixed</div>
-            </div>
-            <Badge variant="success">tests now passing</Badge>
-          </div>
-          <p className="border-b border-border px-4 py-3 text-sm text-muted-foreground">
-            Root cause: the login handler updates auth state but never calls <code className="text-foreground">navigate("/dashboard")</code> after a
-            successful response, so the UI stalls on the login screen.
-          </p>
-          <div className="border-b border-border px-4 py-2.5">
-            <DiffBlock diffText={EXAMPLE_DIFF} className="rounded-none border-none bg-transparent p-0" />
-          </div>
-          <div className="flex items-center gap-4 px-4 py-2.5 text-xs">
-            <span className="font-mono text-muted-foreground">src/auth/LoginForm.tsx</span>
-            <span className="text-success">+2</span>
-            <span className="text-destructive">-0</span>
-            <span className="ml-auto text-muted-foreground">before: 3 failed → after: 0 failed</span>
-          </div>
-        </div>
-      </div>
         </div>
 
         <div className="lg:border-l lg:border-border lg:pl-8">
@@ -251,6 +224,35 @@ export function NewInvestigationForm({
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="mt-6 border-t border-border pt-6">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">What a finished report looks like</p>
+              <Badge variant="outline">Example</Badge>
+            </div>
+            <div className="mt-3 overflow-hidden rounded-lg border border-border bg-card">
+              <div className="flex items-center justify-between border-b border-border px-3.5 py-3">
+                <div>
+                  <div className="text-xs font-semibold tracking-widest text-muted-foreground">VERDICT</div>
+                  <div className="mt-0.5 text-sm font-bold text-success">Verified fixed</div>
+                </div>
+                <Badge variant="success">tests now passing</Badge>
+              </div>
+              <p className="border-b border-border px-3.5 py-2.5 text-xs text-muted-foreground">
+                Root cause: the login handler updates auth state but never calls <code className="text-foreground">navigate("/dashboard")</code> after a
+                successful response, so the UI stalls on the login screen.
+              </p>
+              <div className="border-b border-border px-3.5 py-2">
+                <DiffBlock diffText={EXAMPLE_DIFF} className="rounded-none border-none bg-transparent p-0 text-xs" />
+              </div>
+              <div className="flex flex-wrap items-center gap-3 px-3.5 py-2 text-xs">
+                <span className="font-mono text-muted-foreground">src/auth/LoginForm.tsx</span>
+                <span className="text-success">+2</span>
+                <span className="text-destructive">-0</span>
+                <span className="text-muted-foreground">before: 3 failed → after: 0 failed</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

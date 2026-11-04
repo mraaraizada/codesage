@@ -116,6 +116,7 @@ export type VerificationStatus =
   | "tests-still-failing"
   | "patch-did-not-apply"
   | "no-tests-detected"
+  | "applied-unverified"
   | "dry-run-no-llm"
   | "inconclusive";
 
@@ -184,6 +185,21 @@ export interface SubBugResult {
    * command exists to verify against) or rolled back (tests regressed, stayed failing, patch
    * didn't apply, investigation crashed, or investigation never named files to patch). */
   kept: boolean;
+  /** A bug-specific reproduction test generated and run for this sub-bug, when one could be
+   * generated — gives a real before/after signal for THIS bug instead of relying only on whether
+   * the whole suite's pass/fail count moved (which can't prove anything when the suite already
+   * passes end-to-end with the bug still present). Null when no test command was detected or the
+   * model couldn't produce a usable test — verification then falls back to the whole-suite count
+   * comparison alone. */
+  reproTest: {
+    relPath: string;
+    /** True if the generated test actually failed before the patch (bug reproduced for real),
+     * false if it unexpectedly passed already (can't confirm reproduction), null if its pass/fail
+     * line couldn't be found in the test runner's output at all. */
+    failedBeforePatch: boolean | null;
+    /** True if the same test passed after the patch, false/null with the same meaning as above. */
+    passedAfterPatch: boolean | null;
+  } | null;
 }
 
 export interface MultiBugReport {
